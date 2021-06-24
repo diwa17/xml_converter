@@ -18,8 +18,8 @@ COLS = ['FinInstrmGnlAttrbts.Id','FinInstrmGnlAttrbts.FullNm','FinInstrmGnlAttrb
 
 class XmlParser():
 
-    def __init__(self):
-        self.url = URL
+    def __init__(self,url):
+        self.url = url
         self.tempdir = tempfile.mkdtemp(prefix="steeleye", suffix="zip_folder")
     
     def parsedownloadedlinks(self):
@@ -63,11 +63,14 @@ class XmlParser():
                 zip_ref.close()
                 os.remove(filename)
 
-    def xmlparsing_and_build_DataFrame(self):
-        rows = []
+    def xmlparsing_and_build_DataFrame(self,cols):
+        ##Iterate through all the files
+        firstFileFlag = True
         for xml_files in os.listdir(self.tempdir):
+            rows = []
             parsedfile = ET.parse(xml_files).getroot()
             maxrange = len(parsedfile[1][0][0])
+            ##Now go through each loop and extract the fileds needed from each file.
             for start in range(1,maxrange):
                 issr = parsedfile[1][0][0][start][0][1].text
                 id = parsedfile[1][0][0][start][0][0][0].text
@@ -76,20 +79,22 @@ class XmlParser():
                 ntnlccy = parsedfile[1][0][0][start][0][0][4].text
                 cmmdtyDerivInd = parsedfile[1][0][0][start][0][0][5].text
                 rows.append([id,fullName,clsfctntp,cmmdtyDerivInd,ntnlccy,issr])
-        df = pd.DataFrame(rows, columns=COLS)
-        df.to_csv(self.tempdir + "\\finaldata.csv")
-
-
-
-
-
-
-
-
+            ##Add the rows at each file to dataframe
+            df = pd.DataFrame(rows, columns=cols)
+            if firstFileFlag:
+                ##first time load all the data with headers
+                df.to_csv(self.tempdir + "\\finaldata.csv",index=False)
+                firstFileFlag = False
+            else:
+                ##Load all the data from second file.
+                df.to_csv(self.tempdir + "\\finaldata.csv",mode='a',header=False,index=False)
+        logger.info("Program executed Successfully")
 if __name__ == '__main__':
-    a = XmlParser()
-    links = a.parsedownloadedlinks()
-    downloadedLinks = a.retrieveDownloadedLinks(links)
-    a.downloadZippedfilesAndExtract(downloadedLinks)
-    a.xmlparsing_and_build_DataFrame()
-
+    try:
+        xmlcsv = XmlParser(URL)
+        links = xmlcsv.parsedownloadedlinks()
+        downloadedLinks = xmlcsv.retrieveDownloadedLinks(links)
+        xmlcsv.downloadZippedfilesAndExtract(downloadedLinks)
+        xmlcsv.xmlparsing_and_build_DataFrame(COLS)
+    except:
+        logger.error("The program has failed with Error")
